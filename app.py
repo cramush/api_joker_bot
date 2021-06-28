@@ -1,23 +1,26 @@
 from flask import Flask, jsonify, request
 import pymongo
 from pymongo.errors import DuplicateKeyError
+import config
 
 app = Flask(__name__)
 
-client = pymongo.MongoClient("mongodb://admin:admin@localhost:27017/jokes_db")
+client = pymongo.MongoClient(f"mongodb://{config.login}:{config.password}@{config.host}/{config.db_name}")
 db = client["jokes_db"]
 collection = db["jokes"]
-# collection.drop()
+collection.drop()
 
 
 @app.route("/add/one", methods=["POST"])
 def add_jokes():
     joke_id = request.json["id"]
-    title = request.json["title"]
+    tag = request.json["tag"]
+    data = request.json["data"]
     content = request.json["content"]
     joke = {
             "_id": joke_id,
-            "title": title,
+            "tag": tag,
+            "data": data,
             "content": content
         }
 
@@ -48,11 +51,13 @@ def add_many():
     try:
         for element in joke_list:
             joke_id = element["id"]
-            title = element["title"]
+            tag = element["tag"]
+            data = element["data"]
             content = element["content"]
             joke = {
                 "_id": joke_id,
-                "title": title,
+                "tag": tag,
+                "data": data,
                 "content": content
             }
             collection.insert_one(joke)
@@ -71,22 +76,6 @@ def add_many():
         response.status_code = 404
 
         return response
-
-
-@app.route("/sort", methods=["PUT"])
-def sort_jokes():
-    sort = collection.find().sort("_id", 1)
-
-    for raw in sort:
-        print(raw)
-        joke_id = raw["_id"]
-        collection.delete_one({"_id": joke_id})
-        collection.insert_one(raw)
-
-    response = jsonify("Sorted successfully")
-    response.status_code = 200
-
-    return response
 
 
 @app.route("/delete/one/<joke_id>", methods=["DELETE"])
@@ -111,10 +100,12 @@ def delete_jokes():
 
 @app.route("/update/<joke_id>", methods=["PUT"])
 def update_joke(joke_id):
-    title = request.json["title"]
+    tag = request.json["tag"]
+    data = request.json["data"]
     content = request.json["content"]
     update = {
-        "title": title,
+        "tag": tag,
+        "data": data,
         "content": content
     }
     collection.update_one({"_id": int(joke_id)}, {"$set": update})
@@ -127,8 +118,8 @@ def update_joke(joke_id):
 
 @app.route("/all", methods=["GET"])
 def all_jokes():
-    _container = collection.find()
-    container = [{"id": elem["_id"], "title": elem["title"], "content": elem["content"]} for elem in _container]
+    container = collection.find().sort("tag", pymongo.ASCENDING)
+    container = [{"id": el["_id"], "tag": el["tag"], "data": el["data"], "content": el["content"]} for el in container]
 
     response = jsonify({"jokes": container})
     response.status_code = 200

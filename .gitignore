@@ -2,3 +2,5 @@ db
 templates
 venv
 .idea
+.env
+secrets.yaml
