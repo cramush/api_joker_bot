@@ -3,6 +3,6 @@ db.createUser(
     {
         user: 'admin',
         pwd:  'admin',
-        roles: [{role: 'readWrite', db: 'jokes_db'}],
+        roles: [{role: 'dbOwner', db: 'jokes_db'}],
     }
 );

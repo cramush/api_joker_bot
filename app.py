@@ -1,6 +1,7 @@
 from flask import Flask, jsonify, request
+from bson.objectid import ObjectId
+from datetime import datetime
 import pymongo
-from pymongo.errors import DuplicateKeyError
 import config
 
 app = Flask(__name__)
@@ -8,83 +9,94 @@ app = Flask(__name__)
 client = pymongo.MongoClient(f"mongodb://{config.login}:{config.password}@{config.host}/{config.db_name}")
 db = client["jokes_db"]
 collection = db["jokes"]
-collection.drop()
+if collection.estimated_document_count() == 0:
+    collection.drop()
+    collection.create_index([("tag", pymongo.ASCENDING), ("date", pymongo.ASCENDING)])
 
 
 @app.route("/add/one", methods=["POST"])
-def add_jokes():
-    joke_id = request.json["id"]
+def add_joke():
     tag = request.json["tag"]
     data = request.json["data"]
     content = request.json["content"]
+    date = datetime.now()
     joke = {
-            "_id": joke_id,
             "tag": tag,
             "data": data,
-            "content": content
+            "content": content,
+            "date": date
         }
+    collection.insert_one(joke)
 
-    try:
-        collection.insert_one(joke)
-
-        response = jsonify("Added successfully")
-        response.status_code = 200
-
-        return response
-
-    except pymongo.errors.DuplicateKeyError:
-        message = {
-            "status": 404,
-            "message": "DuplicateKeyError: " + request.url
-        }
-        response = jsonify(message)
-        response.status_code = 404
-
-        return response
+    response = jsonify("Added successfully")
+    response.status_code = 200
+    return response
 
 
 @app.route("/add/many", methods=["POST"])
 def add_many():
     json = request.json
     joke_list = json["jokes"]
+    date = datetime.now()
 
-    try:
-        for element in joke_list:
-            joke_id = element["id"]
-            tag = element["tag"]
-            data = element["data"]
-            content = element["content"]
-            joke = {
-                "_id": joke_id,
-                "tag": tag,
-                "data": data,
-                "content": content
-            }
-            collection.insert_one(joke)
-
-        response = jsonify("Added successfully")
-        response.status_code = 200
-
-        return response
-
-    except pymongo.errors.DuplicateKeyError:
-        message = {
-            "status": 404,
-            "message": "DuplicateKeyError: " + request.url
+    for element in joke_list:
+        tag = element["tag"]
+        data = element["data"]
+        content = element["content"]
+        joke = {
+            "tag": tag,
+            "data": data,
+            "content": content,
+            "date": date
         }
-        response = jsonify(message)
-        response.status_code = 404
+        collection.insert_one(joke)
 
-        return response
+    response = jsonify("Added successfully")
+    response.status_code = 200
+    return response
+
+
+@app.route("/update/<joke_id>", methods=["PUT"])
+def update_joke(joke_id):
+    tag = request.json["tag"]
+    data = request.json["data"]
+    content = request.json["content"]
+    date = datetime.now()
+    update = {
+        "tag": tag,
+        "data": data,
+        "content": content,
+        "date": date
+    }
+    collection.update_one({"_id": ObjectId(joke_id)}, {"$set": update})
+
+    response = jsonify("Updated successfully")
+    response.status_code = 200
+    return response
+
+
+@app.route("/all", methods=["GET"])
+def all_jokes():
+    box = collection.find().sort([("tag", pymongo.ASCENDING), ("date", pymongo.ASCENDING)])
+    box = [{
+        "id": str(el["_id"]),
+        "tag": el["tag"],
+        "data": el["data"],
+        "content": el["content"],
+        "date": el["date"]
+        } for el in box]
+
+    response = jsonify({"jokes": box})
+    response.status_code = 200
+    return response
 
 
 @app.route("/delete/one/<joke_id>", methods=["DELETE"])
 def delete_joke(joke_id):
-    collection.delete_one({"_id": int(joke_id)})
+    collection.delete_one({"_id": ObjectId(joke_id)})
 
     response = jsonify("Deleted successfully")
     response.status_code = 200
-
     return response
 
 
@@ -94,36 +106,6 @@ def delete_jokes():
 
     response = jsonify("Deleted successfully")
     response.status_code = 200
-
-    return response
-
-
-@app.route("/update/<joke_id>", methods=["PUT"])
-def update_joke(joke_id):
-    tag = request.json["tag"]
-    data = request.json["data"]
-    content = request.json["content"]
-    update = {
-        "tag": tag,
-        "data": data,
-        "content": content
-    }
-    collection.update_one({"_id": int(joke_id)}, {"$set": update})
-
-    response = jsonify("Updated successfully")
-    response.status_code = 200
-
-    return response
-
-
-@app.route("/all", methods=["GET"])
-def all_jokes():
-    container = collection.find().sort("tag", pymongo.ASCENDING)
-    container = [{"id": el["_id"], "tag": el["tag"], "data": el["data"], "content": el["content"]} for el in container]
-
-    response = jsonify({"jokes": container})
-    response.status_code = 200
-
     return response
 
 
