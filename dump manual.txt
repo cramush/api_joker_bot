@@ -1,5 +1,5 @@
 create dump:
-        sudo
+        sudo mongodump
         --db db_name
         --host host:port
         --authenticationDatabase db_name
