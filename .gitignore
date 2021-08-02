@@ -1,5 +1,4 @@
 db
 venv
 .idea
-.env
 secrets.yaml

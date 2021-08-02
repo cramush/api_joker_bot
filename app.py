@@ -7,7 +7,7 @@ import config
 app = Flask(__name__)
 
 client = pymongo.MongoClient(f"mongodb://{config.login}:{config.password}@{config.host}/{config.db_name}")
-db = client["jokes_db"]
+db = client["my_mongo"]
 collection = db["jokes"]
 if collection.estimated_document_count() == 0:
     collection.drop()
@@ -75,8 +75,24 @@ def update_joke(joke_id):
     return response
 
 
-@app.route("/all", methods=["GET"])
-def all_jokes():
+@app.route("/get/one", methods=["GET"])
+def get_one_joke():
+    random_joke = collection.aggregate([{"$sample": {"size": 1}}])
+    random_joke = [{
+        "id": str(el["_id"]),
+        "tag": el["tag"],
+        "data": el["data"],
+        "content": el["content"],
+        "date": el["date"]
+        } for el in random_joke]
+
+    response = jsonify({"random_joke": random_joke})
+    response.status_code = 200
+    return response
+
+
+@app.route("/get/all", methods=["GET"])  # care (Maximum response size reached)
+def get_all_jokes():
     box = collection.find().sort([("tag", pymongo.ASCENDING), ("date", pymongo.ASCENDING)])
     box = [{
         "id": str(el["_id"]),
